@@ -10,16 +10,9 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/dhowden/tag"
-	"github.com/gocarina/gocsv"
+	_ "github.com/mattn/go-sqlite3"
 	"github.com/urfave/cli/v2"
 )
-
-type Music struct {
-	Key    string `csv:"key"`
-	Title  string `csv:"title"`
-	Album  string `csv:"album"`
-	Artist string `csv:"artist"`
-}
 
 func main() {
 	os.Exit(run(os.Args))
@@ -123,9 +116,10 @@ func generateFileList(bucket string, res *s3.ListObjectsOutput, session *session
 	}
 	defer os.Remove("dummy")
 
-	csv, err := os.OpenFile("music.csv", os.O_RDWR|os.O_CREATE, os.ModePerm)
+	repo := NewRepository("hikimi.db")
+	err = repo.InitDB()
 	if err != nil {
-		return fmt.Errorf("failed to create file %v", err)
+		return fmt.Errorf("failed to create db%v", err)
 	}
 
 	musics := []*Music{}
@@ -147,6 +141,7 @@ func generateFileList(bucket string, res *s3.ListObjectsOutput, session *session
 		if err != nil {
 			fmt.Printf("failed to read tag from file '%v', %v\n", key, err)
 		}
+
 		if t != nil {
 			m.Title = t.Title()
 			m.Album = t.Album()
@@ -156,10 +151,5 @@ func generateFileList(bucket string, res *s3.ListObjectsOutput, session *session
 		musics = append(musics, m)
 	}
 
-	err = gocsv.MarshalFile(&musics, csv)
-	if err != nil {
-		return fmt.Errorf("failed to save file%v", err)
-	}
-
-	return nil
+	return repo.Insert(musics)
 }
