@@ -127,6 +127,11 @@ func generateFileList(bucket string, res *s3.ListObjectsOutput, session *session
 
 	for _, object := range res.Contents {
 		key := *object.Key
+		if repo.Exist(key) {
+			fmt.Printf("'%v' already exists\n", key)
+			continue
+		}
+
 		_, err := downloader.Download(f, &s3.GetObjectInput{
 			Bucket: aws.String(bucket),
 			Key:    aws.String(key),

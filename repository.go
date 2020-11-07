@@ -71,3 +71,11 @@ func (r *Repository) Insert(musics []*Music) error {
 
 	return nil
 }
+
+func (r *Repository) Exist(key string) bool {
+	db, _ := sqlx.Connect("sqlite3", r.database)
+	defer db.Close()
+
+	rows, _ := db.NamedQuery(`SELECT * FROM musics WHERE key=:key`, map[string]interface{}{"key": key})
+	return rows.Next()
+}
