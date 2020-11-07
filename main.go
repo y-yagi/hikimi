@@ -8,8 +8,18 @@ import (
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/aws/aws-sdk-go/service/s3/s3manager"
+	"github.com/dhowden/tag"
+	"github.com/gocarina/gocsv"
 	"github.com/urfave/cli/v2"
 )
+
+type Music struct {
+	Key    string `csv:"key"`
+	Title  string `csv:"title"`
+	Album  string `csv:"album"`
+	Artist string `csv:"artist"`
+}
 
 func main() {
 	os.Exit(run(os.Args))
@@ -68,6 +78,11 @@ func flags() []cli.Flag {
 			Usage:   "region of Wasabi",
 			Value:   "us-east-1",
 		},
+		&cli.BoolFlag{
+			Name:    "generate",
+			Aliases: []string{"g"},
+			Usage:   "generate file list",
+		},
 	}
 }
 
@@ -90,8 +105,60 @@ func appRun(c *cli.Context) error {
 		return fmt.Errorf("Error listing bucket:\n%v\n", err)
 	}
 
+	if c.Bool("generate") {
+		return generateFileList(c.String("bucket"), res, newSession)
+	}
+
 	for _, object := range res.Contents {
 		fmt.Println(*object.Key)
+	}
+
+	return nil
+}
+
+func generateFileList(bucket string, res *s3.ListObjectsOutput, session *session.Session) error {
+	f, err := os.Create("dummy")
+	if err != nil {
+		return fmt.Errorf("failed to create file %v", err)
+	}
+	defer os.Remove("dummy")
+
+	csv, err := os.OpenFile("music.csv", os.O_RDWR|os.O_CREATE, os.ModePerm)
+	if err != nil {
+		return fmt.Errorf("failed to create file %v", err)
+	}
+
+	musics := []*Music{}
+	downloader := s3manager.NewDownloader(session)
+
+	for _, object := range res.Contents {
+		key := *object.Key
+		_, err := downloader.Download(f, &s3.GetObjectInput{
+			Bucket: aws.String(bucket),
+			Key:    aws.String(key),
+		})
+		if err != nil {
+			fmt.Printf("failed to download file '%v', %v\n", key, err)
+			continue
+		}
+
+		m := &Music{Key: key}
+		t, err := tag.ReadFrom(f)
+		if err != nil {
+			fmt.Printf("failed to read tag from file '%v', %v\n", key, err)
+		}
+		if t != nil {
+			m.Title = t.Title()
+			m.Album = t.Album()
+			m.Artist = t.Artist()
+		}
+
+		musics = append(musics, m)
+	}
+
+	err = gocsv.MarshalFile(&musics, csv)
+	if err != nil {
+		return fmt.Errorf("failed to save file%v", err)
 	}
 
 	return nil
