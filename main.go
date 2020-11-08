@@ -89,21 +89,24 @@ func appRun(c *cli.Context) error {
 	newSession := session.New(s3Config)
 	svc := s3.New(newSession)
 
-	res, err := svc.ListObjects(&s3.ListObjectsInput{
+	err := svc.ListObjectsPages(&s3.ListObjectsInput{
 		Bucket: aws.String(c.String("bucket")),
 		Prefix: aws.String(c.String("prefix")),
+	}, func(p *s3.ListObjectsOutput, last bool) (shouldContinue bool) {
+		if !c.Bool("generate") {
+			for _, obj := range p.Contents {
+				fmt.Println(*obj.Key)
+			}
+		} else {
+			if err := generateFileList(c.String("bucket"), p, newSession); err != nil {
+				fmt.Printf("Error generate list:\n%v\n", err)
+			}
+		}
+		return true
 	})
 
 	if err != nil {
 		return fmt.Errorf("Error listing bucket:\n%v\n", err)
-	}
-
-	if c.Bool("generate") {
-		return generateFileList(c.String("bucket"), res, newSession)
-	}
-
-	for _, object := range res.Contents {
-		fmt.Println(*object.Key)
 	}
 
 	return nil
