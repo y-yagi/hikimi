@@ -99,14 +99,14 @@ func appRun(c *cli.Context) error {
 			}
 		} else {
 			if err := generateFileList(c.String("bucket"), p, newSession); err != nil {
-				fmt.Printf("Error generate list:\n%v\n", err)
+				fmt.Printf("error generate list: %v", err)
 			}
 		}
 		return true
 	})
 
 	if err != nil {
-		return fmt.Errorf("Error listing bucket:\n%v\n", err)
+		return fmt.Errorf("error listing bucket: %v", err)
 	}
 
 	return nil
