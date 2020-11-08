@@ -11,6 +11,9 @@ command = ["go", "clean", "-testcache"]
 command = ["go", "build"]
 dependencies = ["clean"]
 
+[install]
+command = ["go", "install"]
+
 [lint]
 dependencies = ["golint", "staticcheck"]
 
