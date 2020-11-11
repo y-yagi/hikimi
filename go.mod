@@ -8,6 +8,7 @@ require (
 	github.com/jmoiron/sqlx v1.2.0
 	github.com/mattn/go-sqlite3 v1.9.0
 	github.com/urfave/cli/v2 v2.3.0
+	github.com/y-yagi/configure v0.2.0
 	github.com/y-yagi/goext v0.5.0
 	google.golang.org/appengine v1.6.7 // indirect
 )

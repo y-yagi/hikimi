@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
@@ -12,7 +13,29 @@ import (
 	"github.com/dhowden/tag"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/urfave/cli/v2"
+	"github.com/y-yagi/configure"
 )
+
+type config struct {
+	DataBase string `toml:"database"`
+}
+
+var (
+	cfg config
+)
+
+func init() {
+	err := configure.Load("hikimi", &cfg)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
+	}
+
+	if len(cfg.DataBase) == 0 {
+		cfg.DataBase = filepath.Join(configure.ConfigDir("hikimi"), "hikimi.db")
+		configure.Save("hikimi", cfg)
+	}
+}
 
 func main() {
 	os.Exit(run(os.Args))
@@ -76,10 +99,18 @@ func flags() []cli.Flag {
 			Aliases: []string{"g"},
 			Usage:   "generate file list",
 		},
+		&cli.BoolFlag{
+			Name:  "config",
+			Usage: "edit config",
+		},
 	}
 }
 
 func appRun(c *cli.Context) error {
+	if c.Bool("config") {
+		return configure.Edit("hikimi", "vim")
+	}
+
 	s3Config := &aws.Config{
 		Credentials:      credentials.NewStaticCredentials(c.String("accesskey"), c.String("secret"), ""),
 		Endpoint:         aws.String("https://s3.wasabisys.com"),
@@ -119,7 +150,7 @@ func generateFileList(bucket string, res *s3.ListObjectsOutput, session *session
 	}
 	defer os.Remove("dummy")
 
-	repo := NewRepository("hikimi.db")
+	repo := NewRepository(cfg.DataBase)
 	err = repo.InitDB()
 	if err != nil {
 		return fmt.Errorf("failed to create db%v", err)
