@@ -103,6 +103,11 @@ func flags() []cli.Flag {
 			Name:  "config",
 			Usage: "edit config",
 		},
+		&cli.BoolFlag{
+			Name:    "download",
+			Aliases: []string{"d"},
+			Usage:   "download files",
+		},
 	}
 }
 
@@ -124,13 +129,17 @@ func appRun(c *cli.Context) error {
 		Bucket: aws.String(c.String("bucket")),
 		Prefix: aws.String(c.String("prefix")),
 	}, func(p *s3.ListObjectsOutput, last bool) (shouldContinue bool) {
-		if !c.Bool("generate") {
-			for _, obj := range p.Contents {
-				fmt.Println(*obj.Key)
-			}
-		} else {
+		if c.Bool("generate") {
 			if err := generateFileList(c.String("bucket"), p, newSession); err != nil {
 				fmt.Printf("error generate list: %v", err)
+			}
+		} else if c.Bool("download") {
+			if err := download(c.String("bucket"), p, newSession); err != nil {
+				fmt.Printf("error generate list: %v", err)
+			}
+		} else {
+			for _, obj := range p.Contents {
+				fmt.Println(*obj.Key)
 			}
 		}
 		return true
@@ -191,4 +200,38 @@ func generateFileList(bucket string, res *s3.ListObjectsOutput, session *session
 	}
 
 	return repo.Insert(musics)
+}
+
+func download(bucket string, res *s3.ListObjectsOutput, session *session.Session) error {
+	downloader := s3manager.NewDownloader(session)
+
+	for _, object := range res.Contents {
+		key := *object.Key
+
+		dir, file := filepath.Split(key)
+		// FIXME: Configure default download path.
+		fullepath := filepath.Join("/tmp", dir)
+		if err := os.MkdirAll(fullepath, os.FileMode(0755)); err != nil {
+			return fmt.Errorf("failed to create dir %v", err)
+		}
+
+		file = filepath.Join(fullepath, file)
+		f, err := os.Create(file)
+		if err != nil {
+			return fmt.Errorf("failed to create file %v", err)
+		}
+
+		_, err = downloader.Download(f, &s3.GetObjectInput{
+			Bucket: aws.String(bucket),
+			Key:    aws.String(key),
+		})
+		if err != nil {
+			fmt.Printf("failed to download file '%v', %v\n", key, err)
+			continue
+		}
+
+		fmt.Printf("file was downloaded to '%v'\n", file)
+	}
+
+	return nil
 }
