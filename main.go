@@ -10,7 +10,6 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
-	"github.com/dhowden/tag"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/urfave/cli/v2"
 	"github.com/y-yagi/configure"
@@ -153,20 +152,13 @@ func appRun(c *cli.Context) error {
 }
 
 func generateFileList(bucket string, res *s3.ListObjectsOutput, session *session.Session) error {
-	f, err := os.Create("dummy")
-	if err != nil {
-		return fmt.Errorf("failed to create file %v", err)
-	}
-	defer os.Remove("dummy")
-
 	repo := NewRepository(cfg.DataBase)
-	err = repo.InitDB()
+	err := repo.InitDB()
 	if err != nil {
 		return fmt.Errorf("failed to create db%v", err)
 	}
 
 	musics := []*Music{}
-	downloader := s3manager.NewDownloader(session)
 
 	for _, object := range res.Contents {
 		key := *object.Key
@@ -175,27 +167,7 @@ func generateFileList(bucket string, res *s3.ListObjectsOutput, session *session
 			continue
 		}
 
-		_, err := downloader.Download(f, &s3.GetObjectInput{
-			Bucket: aws.String(bucket),
-			Key:    aws.String(key),
-		})
-		if err != nil {
-			fmt.Printf("failed to download file '%v', %v\n", key, err)
-			continue
-		}
-
 		m := &Music{Key: key}
-		t, err := tag.ReadFrom(f)
-		if err != nil {
-			fmt.Printf("failed to read tag from file '%v', %v\n", key, err)
-		}
-
-		if t != nil {
-			m.Title = t.Title()
-			m.Album = t.Album()
-			m.Artist = t.Artist()
-		}
-
 		musics = append(musics, m)
 	}
 
