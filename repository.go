@@ -79,3 +79,22 @@ func (r *Repository) Exist(key string) bool {
 	rows, _ := db.NamedQuery(`SELECT * FROM musics WHERE key=:key`, map[string]interface{}{"key": key})
 	return rows.Next()
 }
+
+func (r *Repository) Search(text string) ([]Music, error) {
+	db, _ := sqlx.Connect("sqlite3", r.database)
+	defer db.Close()
+
+	rows, _ := db.NamedQuery(`SELECT * FROM musics WHERE key LIKE :text`, map[string]interface{}{"text": "%" + text + "%"})
+
+	musics := []Music{}
+	for rows.Next() {
+		var music Music
+		err := rows.StructScan(&music)
+		if err != nil {
+			return musics, err
+		}
+		musics = append(musics, music)
+	}
+
+	return musics, nil
+}

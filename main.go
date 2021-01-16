@@ -10,6 +10,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
+	"github.com/manifoldco/promptui"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/urfave/cli/v2"
 	"github.com/y-yagi/configure"
@@ -107,6 +108,10 @@ func flags() []cli.Flag {
 			Aliases: []string{"d"},
 			Usage:   "download files",
 		},
+		&cli.StringFlag{
+			Name:  "search",
+			Usage: "search and dowload files",
+		},
 	}
 }
 
@@ -124,6 +129,14 @@ func appRun(c *cli.Context) error {
 	newSession := session.New(s3Config)
 	svc := s3.New(newSession)
 
+	if len(c.String("search")) != 0 {
+		if err := search(c, newSession); err != nil {
+			fmt.Printf("error in search: %v", err)
+			return err
+		}
+		return nil
+	}
+
 	err := svc.ListObjectsPages(&s3.ListObjectsInput{
 		Bucket: aws.String(c.String("bucket")),
 		Prefix: aws.String(c.String("prefix")),
@@ -134,7 +147,7 @@ func appRun(c *cli.Context) error {
 			}
 		} else if c.Bool("download") {
 			if err := download(c.String("bucket"), p, newSession); err != nil {
-				fmt.Printf("error generate list: %v", err)
+				fmt.Printf("error download files: %v", err)
 			}
 		} else {
 			for _, obj := range p.Contents {
@@ -178,32 +191,101 @@ func download(bucket string, res *s3.ListObjectsOutput, session *session.Session
 	downloader := s3manager.NewDownloader(session)
 
 	for _, object := range res.Contents {
-		key := *object.Key
-
-		dir, file := filepath.Split(key)
-		// FIXME: Configure default download path.
-		fullepath := filepath.Join("/tmp", dir)
-		if err := os.MkdirAll(fullepath, os.FileMode(0755)); err != nil {
-			return fmt.Errorf("failed to create dir %v", err)
+		if err := downloadFile(bucket, *object.Key, downloader); err != nil {
+			return err
 		}
-
-		file = filepath.Join(fullepath, file)
-		f, err := os.Create(file)
-		if err != nil {
-			return fmt.Errorf("failed to create file %v", err)
-		}
-
-		_, err = downloader.Download(f, &s3.GetObjectInput{
-			Bucket: aws.String(bucket),
-			Key:    aws.String(key),
-		})
-		if err != nil {
-			fmt.Printf("failed to download file '%v', %v\n", key, err)
-			continue
-		}
-
-		fmt.Printf("file was downloaded to '%v'\n", file)
 	}
 
 	return nil
+}
+
+func downloadFile(bucket, key string, downloader *s3manager.Downloader) error {
+	dir, file := filepath.Split(key)
+	// FIXME: Configure default download path.
+	fullepath := filepath.Join("/tmp", dir)
+	if err := os.MkdirAll(fullepath, os.FileMode(0755)); err != nil {
+		return fmt.Errorf("failed to create dir %v", err)
+	}
+
+	file = filepath.Join(fullepath, file)
+	f, err := os.Create(file)
+	if err != nil {
+		return fmt.Errorf("failed to create file %v", err)
+	}
+
+	_, err = downloader.Download(f, &s3.GetObjectInput{
+		Bucket: aws.String(bucket),
+		Key:    aws.String(key),
+	})
+	if err != nil {
+		return fmt.Errorf("failed to download file '%v', %v\n", key, err)
+	}
+
+	fmt.Printf("file was downloaded to '%v'\n", file)
+	return nil
+}
+
+func search(c *cli.Context, session *session.Session) error {
+	repo := NewRepository(cfg.DataBase)
+	if err := repo.InitDB(); err != nil {
+		return fmt.Errorf("failed to create db %v", err)
+	}
+
+	musics, err := repo.Search(c.String("search"))
+	if err != nil {
+		return fmt.Errorf("failed to search %v", err)
+	}
+
+	keys := make([]string, len(musics))
+	for i, music := range musics {
+		keys[i] = music.Key
+	}
+
+	prompt := promptui.Select{
+		Label: "Select file",
+		Items: keys,
+	}
+	_, selectedKey, err := prompt.Run()
+	if err != nil {
+		if err == promptui.ErrInterrupt {
+			return nil
+		}
+
+		return fmt.Errorf("prompt failed %v", err)
+	}
+
+	prompt = promptui.Select{
+		Label: "Select download",
+		Items: []string{"file", "directory"},
+	}
+
+	_, action, err := prompt.Run()
+	if err != nil {
+		if err == promptui.ErrInterrupt {
+			return nil
+		}
+
+		return fmt.Errorf("prompt failed %v", err)
+	}
+
+	if action == "file" {
+		downloader := s3manager.NewDownloader(session)
+		return downloadFile(c.String("bucket"), selectedKey, downloader)
+	}
+
+	selectedKey = filepath.Dir(selectedKey) + "/"
+	fmt.Printf("selectedKey %v\n", selectedKey)
+	svc := s3.New(session)
+	err = svc.ListObjectsPages(&s3.ListObjectsInput{
+		Bucket: aws.String(c.String("bucket")),
+		Prefix: aws.String(selectedKey),
+	}, func(p *s3.ListObjectsOutput, last bool) (shouldContinue bool) {
+		if err := download(c.String("bucket"), p, session); err != nil {
+			fmt.Printf("error download files: %v", err)
+			return false
+		}
+		return true
+	})
+
+	return err
 }
