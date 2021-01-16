@@ -1,9 +1,12 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"strings"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
@@ -236,25 +239,21 @@ func search(c *cli.Context, session *session.Session) error {
 		return fmt.Errorf("failed to search %v", err)
 	}
 
-	keys := make([]string, len(musics))
-	for i, music := range musics {
-		keys[i] = music.Key
+	buf := ""
+	stdout := new(bytes.Buffer)
+	for _, music := range musics {
+		buf += music.Key + "\n"
 	}
+
+	cmd := exec.Command("sh", "-c", "peco")
+	cmd.Stdout = stdout
+	cmd.Stdin = strings.NewReader(buf)
+	if err = cmd.Run(); err != nil {
+		return err
+	}
+	selectedKey := strings.TrimSuffix(stdout.String(), "\n")
 
 	prompt := promptui.Select{
-		Label: "Select file",
-		Items: keys,
-	}
-	_, selectedKey, err := prompt.Run()
-	if err != nil {
-		if err == promptui.ErrInterrupt {
-			return nil
-		}
-
-		return fmt.Errorf("prompt failed %v", err)
-	}
-
-	prompt = promptui.Select{
 		Label: "Select download",
 		Items: []string{"file", "directory"},
 	}
