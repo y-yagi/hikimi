@@ -99,9 +99,9 @@ func flags() []cli.Flag {
 			Value:   "us-east-1",
 		},
 		&cli.BoolFlag{
-			Name:    "generate",
-			Aliases: []string{"g"},
-			Usage:   "generate file list",
+			Name:    "index",
+			Aliases: []string{"i"},
+			Usage:   "index files",
 		},
 		&cli.BoolFlag{
 			Name:  "config",
@@ -145,9 +145,9 @@ func appRun(c *cli.Context) error {
 		Bucket: aws.String(c.String("bucket")),
 		Prefix: aws.String(c.String("prefix")),
 	}, func(p *s3.ListObjectsOutput, last bool) (shouldContinue bool) {
-		if c.Bool("generate") {
-			if err := generateFileList(c.String("bucket"), p, newSession); err != nil {
-				fmt.Printf("error generate list: %v", err)
+		if c.Bool("index") {
+			if err := indexFileList(c.String("bucket"), p, newSession); err != nil {
+				fmt.Printf("error index files: %v", err)
 			}
 		} else if c.Bool("download") {
 			if err := download(c.String("bucket"), p, newSession); err != nil {
@@ -168,7 +168,7 @@ func appRun(c *cli.Context) error {
 	return nil
 }
 
-func generateFileList(bucket string, res *s3.ListObjectsOutput, session *session.Session) error {
+func indexFileList(bucket string, res *s3.ListObjectsOutput, session *session.Session) error {
 	repo := NewRepository(cfg.DataBase)
 	err := repo.InitDB()
 	if err != nil {
