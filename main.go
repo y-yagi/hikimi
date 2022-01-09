@@ -17,6 +17,7 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/urfave/cli/v2"
 	"github.com/y-yagi/configure"
+	"github.com/y-yagi/hikimi/db"
 )
 
 type config struct {
@@ -169,13 +170,13 @@ func appRun(c *cli.Context) error {
 }
 
 func indexFileList(bucket string, res *s3.ListObjectsOutput, session *session.Session) error {
-	repo := NewRepository(cfg.DataBase)
+	repo := db.NewRepository(cfg.DataBase)
 	err := repo.InitDB()
 	if err != nil {
 		return fmt.Errorf("failed to create db%v", err)
 	}
 
-	musics := []*Music{}
+	musics := []*db.Music{}
 
 	for _, object := range res.Contents {
 		key := *object.Key
@@ -184,7 +185,7 @@ func indexFileList(bucket string, res *s3.ListObjectsOutput, session *session.Se
 			continue
 		}
 
-		m := &Music{Key: key}
+		m := &db.Music{Key: key}
 		musics = append(musics, m)
 	}
 
@@ -233,7 +234,7 @@ func downloadFile(bucket, key string, downloader *s3manager.Downloader) error {
 }
 
 func search(c *cli.Context, session *session.Session) error {
-	repo := NewRepository(cfg.DataBase)
+	repo := db.NewRepository(cfg.DataBase)
 	if err := repo.InitDB(); err != nil {
 		return fmt.Errorf("failed to create db %v", err)
 	}
