@@ -25,3 +25,6 @@ command = ["staticcheck", "./..."]
 
 [install_tools]
 command = ["go", "-u", "golang.org/x/lint/golint", "honnef.co/go/tools/cmd/staticcheck"]
+
+[db]
+command = ["sqlite3", "/home/y-yagi/.config/hikimi/hikimi.db"]
