@@ -18,6 +18,7 @@ import (
 	"github.com/urfave/cli/v2"
 	"github.com/y-yagi/configure"
 	"github.com/y-yagi/hikimi/db"
+	"github.com/y-yagi/hikimi/indexer"
 )
 
 type config struct {
@@ -147,7 +148,7 @@ func appRun(c *cli.Context) error {
 		Prefix: aws.String(c.String("prefix")),
 	}, func(p *s3.ListObjectsOutput, last bool) (shouldContinue bool) {
 		if c.Bool("index") {
-			if err := indexFileList(c.String("bucket"), p, newSession); err != nil {
+			if err := indexer.Run(cfg.DataBase, c.String("bucket"), p, newSession); err != nil {
 				fmt.Printf("error index files: %v", err)
 			}
 		} else if c.Bool("download") {
@@ -167,29 +168,6 @@ func appRun(c *cli.Context) error {
 	}
 
 	return nil
-}
-
-func indexFileList(bucket string, res *s3.ListObjectsOutput, session *session.Session) error {
-	repo := db.NewRepository(cfg.DataBase)
-	err := repo.InitDB()
-	if err != nil {
-		return fmt.Errorf("failed to create db%v", err)
-	}
-
-	musics := []*db.Music{}
-
-	for _, object := range res.Contents {
-		key := *object.Key
-		if repo.Exist(key) {
-			fmt.Printf("'%v' already exists\n", key)
-			continue
-		}
-
-		m := &db.Music{Key: key}
-		musics = append(musics, m)
-	}
-
-	return repo.Insert(musics)
 }
 
 func download(bucket string, res *s3.ListObjectsOutput, session *session.Session) error {
