@@ -20,7 +20,8 @@ import (
 )
 
 type config struct {
-	DataBase string `toml:"database"`
+	DataBase     string `toml:"database"`
+	DownloadPath string `toml:"download_path"`
 }
 
 var (
@@ -203,9 +204,12 @@ func download(bucket string, res *s3.ListObjectsOutput, session *session.Session
 }
 
 func downloadFile(bucket, key string, downloader *s3manager.Downloader) error {
+	basePath := "/tmp"
+	if len(cfg.DownloadPath) != 0 {
+		basePath = cfg.DownloadPath
+	}
 	dir, file := filepath.Split(key)
-	// FIXME: Configure default download path.
-	fullepath := filepath.Join("/tmp", dir)
+	fullepath := filepath.Join(basePath, dir)
 	if err := os.MkdirAll(fullepath, os.FileMode(0755)); err != nil {
 		return fmt.Errorf("failed to create dir %v", err)
 	}
