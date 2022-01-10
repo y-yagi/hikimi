@@ -122,7 +122,11 @@ func appRun(c *cli.Context) error {
 		Region:           aws.String(c.String("region")),
 		S3ForcePathStyle: aws.Bool(true),
 	}
-	newSession := session.New(s3Config)
+	newSession, err := session.NewSession(s3Config)
+	if err != nil {
+		return err
+	}
+
 	svc := s3.New(newSession)
 
 	if len(c.String("search")) != 0 {
@@ -138,7 +142,7 @@ func appRun(c *cli.Context) error {
 		return nil
 	}
 
-	err := svc.ListObjectsPages(&s3.ListObjectsInput{
+	err = svc.ListObjectsPages(&s3.ListObjectsInput{
 		Bucket: aws.String(c.String("bucket")),
 		Prefix: aws.String(c.String("prefix")),
 	}, func(p *s3.ListObjectsOutput, last bool) (shouldContinue bool) {
