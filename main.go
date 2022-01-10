@@ -133,18 +133,17 @@ func appRun(c *cli.Context) error {
 		return nil
 	}
 
+	if !c.Bool("index") {
+		cli.ShowAppHelp(c)
+		return nil
+	}
+
 	err := svc.ListObjectsPages(&s3.ListObjectsInput{
 		Bucket: aws.String(c.String("bucket")),
 		Prefix: aws.String(c.String("prefix")),
 	}, func(p *s3.ListObjectsOutput, last bool) (shouldContinue bool) {
-		if c.Bool("index") {
-			if err := indexer.Run(cfg.DataBase, c.String("bucket"), p, newSession); err != nil {
-				fmt.Printf("error index files: %v", err)
-			}
-		} else {
-			for _, obj := range p.Contents {
-				fmt.Println(*obj.Key)
-			}
+		if err := indexer.Run(cfg.DataBase, c.String("bucket"), p, newSession); err != nil {
+			fmt.Printf("error index files: %v", err)
 		}
 		return true
 	})
