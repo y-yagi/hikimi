@@ -8,7 +8,6 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/s3"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/urfave/cli/v2"
 	"github.com/y-yagi/configure"
@@ -127,8 +126,6 @@ func appRun(c *cli.Context) error {
 		return err
 	}
 
-	svc := s3.New(newSession)
-
 	if len(c.String("search")) != 0 {
 		if err := searcher.Run(c, cfg.DataBase, cfg.DownloadPath, newSession); err != nil {
 			fmt.Printf("error in search: %v", err)
@@ -142,18 +139,8 @@ func appRun(c *cli.Context) error {
 		return nil
 	}
 
-	err = svc.ListObjectsPages(&s3.ListObjectsInput{
-		Bucket: aws.String(c.String("bucket")),
-		Prefix: aws.String(c.String("prefix")),
-	}, func(p *s3.ListObjectsOutput, last bool) (shouldContinue bool) {
-		if err := indexer.Run(cfg.DataBase, c.String("bucket"), p, newSession); err != nil {
-			fmt.Printf("error index files: %v", err)
-		}
-		return true
-	})
-
-	if err != nil {
-		return fmt.Errorf("error listing bucket: %v", err)
+	if err := indexer.Run(cfg.DataBase, c.String("prefix"), c.String("bucket"), newSession); err != nil {
+		return fmt.Errorf("error in indexing: %v", err)
 	}
 
 	return nil
