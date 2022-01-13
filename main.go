@@ -84,17 +84,12 @@ func flags() []cli.Flag {
 			Required: true,
 		},
 		&cli.StringFlag{
-			Name:    "prefix",
-			Aliases: []string{"p"},
-			Usage:   "prefix of bucket",
-		},
-		&cli.StringFlag{
 			Name:    "region",
 			Aliases: []string{"r"},
 			Usage:   "region of Wasabi",
 			Value:   "us-east-1",
 		},
-		&cli.BoolFlag{
+		&cli.StringFlag{
 			Name:    "index",
 			Aliases: []string{"i"},
 			Usage:   "index files",
@@ -134,12 +129,12 @@ func appRun(c *cli.Context) error {
 		return nil
 	}
 
-	if !c.Bool("index") {
+	if len(c.String("index")) == 0 {
 		cli.ShowAppHelp(c)
 		return nil
 	}
 
-	if err := indexer.Run(cfg.DataBase, c.String("prefix"), c.String("bucket"), newSession); err != nil {
+	if err := indexer.Run(cfg.DataBase, c.String("index"), c.String("bucket"), newSession); err != nil {
 		return fmt.Errorf("error in indexing: %v", err)
 	}
 
