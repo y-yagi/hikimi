@@ -7,9 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/manifoldco/promptui"
 	"github.com/urfave/cli/v2"
 	"github.com/y-yagi/hikimi/db"
@@ -55,25 +53,10 @@ func Run(c *cli.Context, database, downloadPath string, session *session.Session
 		return fmt.Errorf("prompt failed %v", err)
 	}
 
-	if action == "file" {
-		return downloader.Run(c.String("bucket"), []string{selectedKey}, downloadPath, session)
+	if action == "directory" {
+		selectedKey = filepath.Dir(selectedKey) + "/"
 	}
 
-	selectedKey = filepath.Dir(selectedKey) + "/"
 	fmt.Printf("selectedKey %v\n", selectedKey)
-	svc := s3.New(session)
-	err = svc.ListObjectsPages(&s3.ListObjectsInput{
-		Bucket: aws.String(c.String("bucket")),
-		Prefix: aws.String(selectedKey),
-	}, func(p *s3.ListObjectsOutput, last bool) (shouldContinue bool) {
-		keys := []string{}
-		for _, object := range p.Contents {
-			keys = append(keys, *object.Key)
-		}
-
-		err = downloader.Run(c.String("bucket"), keys, downloadPath, session)
-		return true
-	})
-
-	return err
+	return downloader.Run(c.String("bucket"), selectedKey, downloadPath, session)
 }

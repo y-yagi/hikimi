@@ -11,15 +11,24 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 )
 
-func Run(bucket string, keys []string, downloadPath string, session *session.Session) error {
+func Run(bucket, prefix string, downloadPath string, session *session.Session) error {
+	svc := s3.New(session)
 	s3Downloader := s3manager.NewDownloader(session)
-	for _, key := range keys {
-		if err := downloadFile(bucket, key, downloadPath, s3Downloader); err != nil {
-			return err
-		}
-	}
 
-	return nil
+	err := svc.ListObjectsPages(&s3.ListObjectsInput{
+		Bucket: aws.String(bucket),
+		Prefix: aws.String(prefix),
+	}, func(p *s3.ListObjectsOutput, last bool) (shouldContinue bool) {
+		for _, object := range p.Contents {
+			if err := downloadFile(bucket, *object.Key, downloadPath, s3Downloader); err != nil {
+				fmt.Printf("Download error: %v\n", err)
+			}
+		}
+
+		return true
+	})
+
+	return err
 }
 
 func downloadFile(bucket, key, downloadPath string, s3Downloader *s3manager.Downloader) error {
