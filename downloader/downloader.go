@@ -19,6 +19,11 @@ func Run(bucket, prefix string, downloadPath string, session *session.Session) e
 		Bucket: aws.String(bucket),
 		Prefix: aws.String(prefix),
 	}, func(p *s3.ListObjectsOutput, last bool) (shouldContinue bool) {
+		if len(p.Contents) == 0 {
+			fmt.Println("Contents couldn't find. Maybe the bucket is wrong?")
+			return true
+		}
+
 		for _, object := range p.Contents {
 			if err := downloadFile(bucket, *object.Key, downloadPath, s3Downloader); err != nil {
 				fmt.Printf("Download error: %v\n", err)
