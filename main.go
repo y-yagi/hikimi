@@ -11,6 +11,7 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/urfave/cli/v2"
 	"github.com/y-yagi/configure"
+	"github.com/y-yagi/hikimi/downloader"
 	"github.com/y-yagi/hikimi/indexer"
 	"github.com/y-yagi/hikimi/searcher"
 )
@@ -102,6 +103,10 @@ func flags() []cli.Flag {
 			Name:  "search",
 			Usage: "search and dowload files",
 		},
+		&cli.StringFlag{
+			Name:  "download",
+			Usage: "dowload files",
+		},
 	}
 }
 
@@ -126,6 +131,15 @@ func appRun(c *cli.Context) error {
 			fmt.Printf("error in search: %v", err)
 			return err
 		}
+		return nil
+	}
+
+	if len(c.String("download")) != 0 {
+		if err := downloader.Run(c.String("bucket"), c.String("download"), cfg.DownloadPath, newSession); err != nil {
+			fmt.Printf("error in downloading: %v", err)
+			return err
+		}
+
 		return nil
 	}
 
