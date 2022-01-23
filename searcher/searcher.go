@@ -20,7 +20,7 @@ func Run(c *cli.Context, database, downloadPath string, session *session.Session
 		return fmt.Errorf("failed to create db %v", err)
 	}
 
-	musics, err := repo.Search(c.String("search"))
+	musics, err := repo.Search(c.String("search"), c.String("bucket"))
 	if err != nil {
 		return fmt.Errorf("failed to search %v", err)
 	}

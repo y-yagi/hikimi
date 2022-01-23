@@ -31,7 +31,7 @@ func Run(database, prefix, bucket string, session *session.Session) error {
 				continue
 			}
 
-			m := &db.Music{Key: key}
+			m := &db.Music{Key: key, Bucket: bucket}
 			musics = append(musics, m)
 		}
 
