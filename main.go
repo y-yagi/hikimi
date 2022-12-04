@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -12,6 +13,7 @@ import (
 	"github.com/urfave/cli/v2"
 	"github.com/y-yagi/configure"
 	"github.com/y-yagi/hikimi/downloader"
+	"github.com/y-yagi/hikimi/identifier"
 	"github.com/y-yagi/hikimi/indexer"
 	"github.com/y-yagi/hikimi/searcher"
 )
@@ -107,6 +109,10 @@ func flags() []cli.Flag {
 			Name:  "download",
 			Usage: "dowload files",
 		},
+		&cli.StringSliceFlag{
+			Name:  "identify",
+			Usage: "identify a local file and an uploaded file",
+		},
 	}
 }
 
@@ -140,6 +146,19 @@ func appRun(c *cli.Context) error {
 			return err
 		}
 
+		return nil
+	}
+
+	if len(c.StringSlice("identify")) != 0 {
+		files := c.StringSlice("identify")
+		if len(files) != 2 {
+			return errors.New("pleaes specify a local file path and an uploaded file path")
+		}
+
+		if err := identifier.Run(c.String("bucket"), files[0], files[1], newSession); err != nil {
+			fmt.Printf("error in identifying: %v", err)
+			return err
+		}
 		return nil
 	}
 
