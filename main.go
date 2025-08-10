@@ -1,14 +1,15 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/credentials"
-	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	awsconfig "github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/credentials"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/urfave/cli/v2"
 	"github.com/y-yagi/configure"
@@ -121,19 +122,23 @@ func appRun(c *cli.Context) error {
 		return configure.Edit("hikimi", "vim")
 	}
 
-	s3Config := &aws.Config{
-		Credentials:      credentials.NewStaticCredentials(c.String("accesskey"), c.String("secret"), ""),
-		Endpoint:         aws.String("https://s3.wasabisys.com"),
-		Region:           aws.String(c.String("region")),
-		S3ForcePathStyle: aws.Bool(true),
-	}
-	newSession, err := session.NewSession(s3Config)
+	awsCfg, err := awsconfig.LoadDefaultConfig(context.TODO(),
+		awsconfig.WithCredentialsProvider(credentials.NewStaticCredentialsProvider(
+			c.String("accesskey"),
+			c.String("secret"),
+			"",
+		)),
+		awsconfig.WithRegion(c.String("region")),
+	)
 	if err != nil {
 		return err
 	}
 
+	// Configure for Wasabi
+	awsCfg.BaseEndpoint = aws.String("https://s3.wasabisys.com")
+
 	if len(c.String("search")) != 0 {
-		if err := searcher.Run(c, cfg.DataBase, cfg.DownloadPath, newSession); err != nil {
+		if err := searcher.Run(c, cfg.DataBase, cfg.DownloadPath, awsCfg); err != nil {
 			fmt.Printf("error in search: %v", err)
 			return err
 		}
@@ -141,7 +146,7 @@ func appRun(c *cli.Context) error {
 	}
 
 	if len(c.String("download")) != 0 {
-		if err := downloader.Run(c.String("bucket"), c.String("download"), cfg.DownloadPath, newSession); err != nil {
+		if err := downloader.Run(c.String("bucket"), c.String("download"), cfg.DownloadPath, awsCfg); err != nil {
 			fmt.Printf("error in downloading: %v", err)
 			return err
 		}
@@ -155,7 +160,7 @@ func appRun(c *cli.Context) error {
 			return errors.New("pleaes specify a local file path and an uploaded file path")
 		}
 
-		if err := identifier.Run(c.String("bucket"), files[0], files[1], newSession); err != nil {
+		if err := identifier.Run(c.String("bucket"), files[0], files[1], awsCfg); err != nil {
 			fmt.Printf("error in identifying: %v", err)
 			return err
 		}
@@ -167,7 +172,7 @@ func appRun(c *cli.Context) error {
 		return nil
 	}
 
-	if err := indexer.Run(cfg.DataBase, c.String("index"), c.String("bucket"), newSession); err != nil {
+	if err := indexer.Run(cfg.DataBase, c.String("index"), c.String("bucket"), awsCfg); err != nil {
 		return fmt.Errorf("error in indexing: %v", err)
 	}
 

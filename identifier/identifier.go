@@ -1,17 +1,17 @@
 package identifier
 
 import (
+	"context"
 	"crypto/md5"
 	"fmt"
 	"io"
 	"os"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 )
 
-func Run(bucket, localFilePath, uploadedFileKey string, session *session.Session) error {
+func Run(bucket, localFilePath, uploadedFileKey string, cfg aws.Config) error {
 	localFile, err := os.Open(localFilePath)
 	if err != nil {
 		return err
@@ -23,8 +23,8 @@ func Run(bucket, localFilePath, uploadedFileKey string, session *session.Session
 		return err
 	}
 
-	svc := s3.New(session)
-	output, err := svc.HeadObject(&s3.HeadObjectInput{
+	svc := s3.NewFromConfig(cfg)
+	output, err := svc.HeadObject(context.TODO(), &s3.HeadObjectInput{
 		Bucket: aws.String(bucket),
 		Key:    aws.String(uploadedFileKey),
 	})

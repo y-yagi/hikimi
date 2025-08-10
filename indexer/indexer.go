@@ -1,30 +1,37 @@
 package indexer
 
 import (
+	"context"
 	"fmt"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/y-yagi/hikimi/db"
 )
 
-func Run(database, prefix, bucket string, session *session.Session) error {
+func Run(database, prefix, bucket string, cfg aws.Config) error {
 	repo := db.NewRepository(database)
 	err := repo.InitDB()
 	if err != nil {
 		return fmt.Errorf("failed to create db%v", err)
 	}
 
-	svc := s3.New(session)
+	svc := s3.NewFromConfig(cfg)
 
-	err = svc.ListObjectsPages(&s3.ListObjectsInput{
+	paginator := s3.NewListObjectsV2Paginator(svc, &s3.ListObjectsV2Input{
 		Bucket: aws.String(bucket),
 		Prefix: aws.String(prefix),
-	}, func(list *s3.ListObjectsOutput, last bool) (shouldContinue bool) {
+	})
+
+	for paginator.HasMorePages() {
+		page, err := paginator.NextPage(context.TODO())
+		if err != nil {
+			return err
+		}
+
 		musics := []*db.Music{}
 
-		for _, object := range list.Contents {
+		for _, object := range page.Contents {
 			key := *object.Key
 			if repo.Exist(key) {
 				fmt.Printf("'%v' already exists\n", key)
@@ -37,11 +44,9 @@ func Run(database, prefix, bucket string, session *session.Session) error {
 
 		if err := repo.Insert(musics); err != nil {
 			fmt.Printf("Insert failed %v\n", err)
-			return false
+			return err
 		}
+	}
 
-		return true
-	})
-
-	return err
+	return nil
 }

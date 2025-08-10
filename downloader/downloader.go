@@ -1,42 +1,47 @@
 package downloader
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/s3"
-	"github.com/aws/aws-sdk-go/service/s3/s3manager"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/feature/s3/manager"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 )
 
-func Run(bucket, prefix string, downloadPath string, session *session.Session) error {
-	svc := s3.New(session)
-	s3Downloader := s3manager.NewDownloader(session)
+func Run(bucket, prefix string, downloadPath string, cfg aws.Config) error {
+	svc := s3.NewFromConfig(cfg)
+	s3Downloader := manager.NewDownloader(svc)
 
-	err := svc.ListObjectsPages(&s3.ListObjectsInput{
+	paginator := s3.NewListObjectsV2Paginator(svc, &s3.ListObjectsV2Input{
 		Bucket: aws.String(bucket),
 		Prefix: aws.String(prefix),
-	}, func(p *s3.ListObjectsOutput, last bool) (shouldContinue bool) {
-		if len(p.Contents) == 0 {
-			fmt.Println("Contents couldn't find. Maybe the bucket is wrong?")
-			return true
+	})
+
+	for paginator.HasMorePages() {
+		page, err := paginator.NextPage(context.TODO())
+		if err != nil {
+			return err
 		}
 
-		for _, object := range p.Contents {
+		if len(page.Contents) == 0 {
+			fmt.Println("Contents couldn't find. Maybe the bucket is wrong?")
+			continue
+		}
+
+		for _, object := range page.Contents {
 			if err := downloadFile(bucket, *object.Key, downloadPath, s3Downloader); err != nil {
 				fmt.Printf("Download error: %v\n", err)
 			}
 		}
+	}
 
-		return true
-	})
-
-	return err
+	return nil
 }
 
-func downloadFile(bucket, key, downloadPath string, s3Downloader *s3manager.Downloader) error {
+func downloadFile(bucket, key, downloadPath string, s3Downloader *manager.Downloader) error {
 	basePath := "/tmp"
 	if len(downloadPath) != 0 {
 		basePath = downloadPath
@@ -52,8 +57,9 @@ func downloadFile(bucket, key, downloadPath string, s3Downloader *s3manager.Down
 	if err != nil {
 		return fmt.Errorf("failed to create file %v", err)
 	}
+	defer f.Close()
 
-	_, err = s3Downloader.Download(f, &s3.GetObjectInput{
+	_, err = s3Downloader.Download(context.TODO(), f, &s3.GetObjectInput{
 		Bucket: aws.String(bucket),
 		Key:    aws.String(key),
 	})

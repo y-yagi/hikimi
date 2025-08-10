@@ -7,14 +7,14 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/manifoldco/promptui"
 	"github.com/urfave/cli/v2"
 	"github.com/y-yagi/hikimi/db"
 	"github.com/y-yagi/hikimi/downloader"
 )
 
-func Run(c *cli.Context, database, downloadPath string, session *session.Session) error {
+func Run(c *cli.Context, database, downloadPath string, cfg aws.Config) error {
 	repo := db.NewRepository(database)
 	if err := repo.InitDB(); err != nil {
 		return fmt.Errorf("failed to create db %v", err)
@@ -59,5 +59,5 @@ func Run(c *cli.Context, database, downloadPath string, session *session.Session
 	}
 
 	fmt.Printf("selectedKey %v\n", selectedKey)
-	return downloader.Run(c.String("bucket"), selectedKey, downloadPath, session)
+	return downloader.Run(c.String("bucket"), selectedKey, downloadPath, cfg)
 }
