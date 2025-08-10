@@ -86,9 +86,13 @@ func (r *Repository) Search(text, bucket string) ([]Music, error) {
 	db, _ := sqlx.Connect("sqlite3", r.database)
 	defer db.Close()
 
-	rows, _ := db.NamedQuery(`SELECT * FROM musics WHERE bucket = :bucket AND key LIKE :text`, map[string]interface{}{"bucket": bucket, "text": "%" + text + "%"})
+	rows, err := db.NamedQuery(`SELECT * FROM musics WHERE bucket = :bucket AND key LIKE :text`, map[string]interface{}{"bucket": bucket, "text": "%" + text + "%"})
 
+	if err != nil {
+		panic(err)
+	}
 	musics := []Music{}
+
 	for rows.Next() {
 		var music Music
 		err := rows.StructScan(&music)
