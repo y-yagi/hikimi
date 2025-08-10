@@ -13,7 +13,7 @@ CREATE TABLE musics (
 	key varchar NOT NULL,
 	title varchar,
 	album varchar,
-	artist varchar
+	artist varchar,
 	bucket varchar
 );
 
