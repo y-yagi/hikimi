@@ -32,6 +32,7 @@ func Run(c *cli.Context, database, downloadPath string, session *session.Session
 	}
 
 	cmd := exec.Command("sh", "-c", "peco")
+	cmd.Env = append(cmd.Env, "TERM=screen")
 	cmd.Stdout = stdout
 	cmd.Stdin = strings.NewReader(buf)
 	if err = cmd.Run(); err != nil {
