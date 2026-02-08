@@ -7,13 +7,15 @@ import (
 	"path/filepath"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/feature/s3/manager"
+	"github.com/aws/aws-sdk-go-v2/feature/s3/transfermanager"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 )
 
 func Run(bucket, prefix string, downloadPath string, cfg aws.Config) error {
-	svc := s3.NewFromConfig(cfg)
-	s3Downloader := manager.NewDownloader(svc)
+	svc := s3.NewFromConfig(cfg, func(o *s3.Options) {
+		o.DisableLogOutputChecksumValidationSkipped = true
+	})
+	transferClient := transfermanager.New(svc)
 
 	paginator := s3.NewListObjectsV2Paginator(svc, &s3.ListObjectsV2Input{
 		Bucket: aws.String(bucket),
@@ -32,7 +34,7 @@ func Run(bucket, prefix string, downloadPath string, cfg aws.Config) error {
 		}
 
 		for _, object := range page.Contents {
-			if err := downloadFile(bucket, *object.Key, downloadPath, s3Downloader); err != nil {
+			if err := downloadFile(bucket, *object.Key, downloadPath, transferClient); err != nil {
 				fmt.Printf("Download error: %v\n", err)
 			}
 		}
@@ -41,7 +43,7 @@ func Run(bucket, prefix string, downloadPath string, cfg aws.Config) error {
 	return nil
 }
 
-func downloadFile(bucket, key, downloadPath string, s3Downloader *manager.Downloader) error {
+func downloadFile(bucket, key, downloadPath string, transferClient *transfermanager.Client) error {
 	basePath := "/tmp"
 	if len(downloadPath) != 0 {
 		basePath = downloadPath
@@ -59,9 +61,10 @@ func downloadFile(bucket, key, downloadPath string, s3Downloader *manager.Downlo
 	}
 	defer f.Close()
 
-	_, err = s3Downloader.Download(context.TODO(), f, &s3.GetObjectInput{
-		Bucket: aws.String(bucket),
-		Key:    aws.String(key),
+	_, err = transferClient.DownloadObject(context.TODO(), &transfermanager.DownloadObjectInput{
+		Bucket:   aws.String(bucket),
+		Key:      aws.String(key),
+		WriterAt: f,
 	})
 	if err != nil {
 		return fmt.Errorf("failed to download file '%v', %v\n", key, err)
