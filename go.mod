@@ -11,7 +11,7 @@ require (
 	github.com/cpuguy83/go-md2man/v2 v2.0.7 // indirect
 	github.com/jmoiron/sqlx v1.4.0
 	github.com/manifoldco/promptui v0.9.0
-	github.com/mattn/go-sqlite3 v1.14.30
+	github.com/mattn/go-sqlite3 v1.14.33
 	github.com/pelletier/go-toml v1.9.5 // indirect
 	github.com/urfave/cli/v2 v2.27.7
 	github.com/y-yagi/configure v0.3.0
