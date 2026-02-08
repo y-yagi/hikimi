@@ -129,6 +129,7 @@ func appRun(c *cli.Context) error {
 			"",
 		)),
 		awsconfig.WithRegion(c.String("region")),
+		awsconfig.WithResponseChecksumValidation(aws.ResponseChecksumValidationUnset),
 	)
 	if err != nil {
 		return err
@@ -136,8 +137,6 @@ func appRun(c *cli.Context) error {
 
 	// Configure for Wasabi
 	awsCfg.BaseEndpoint = aws.String("https://s3.wasabisys.com")
-
-	awsCfg.ResponseChecksumValidation = aws.ResponseChecksumValidationUnset
 
 	if len(c.String("search")) != 0 {
 		if err := searcher.Run(c, cfg.DataBase, cfg.DownloadPath, awsCfg); err != nil {
